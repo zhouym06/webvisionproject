@@ -1,15 +1,5 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Set;
+import java.io.*;
+import java.util.*;
 import java.util.Map.Entry;
 
 import ICTCLAS.I3S.AC.ICTCLAS50;
@@ -66,8 +56,8 @@ public class WebVisionAnalysis {
 	}
 
 	public static void main(String[] args) {
-		String inputPath = "D:/testdata"; // request for sample data
-		String outputPath = "D:/testoutput"; // request for sample data
+		String inputPath = "D:/data"; 			// request for sample data
+		String outputPath = "D:/testoutput"; 		// request for sample data
 
 		WebVisionAnalysis wva = new WebVisionAnalysis(inputPath, outputPath);
 		wva.handle();
@@ -77,13 +67,37 @@ public class WebVisionAnalysis {
 	private void handle() {
 		System.out.println(" handling " + inputPath);
 		// Process
+		File f = new File(inputPath);
+		readAllFiles(f);
+		// sort and output the Keywords group3 needed
+		Keywords2File();
+	}
+	private void readAllFiles(File f)
+	{	
+		if(f.isDirectory())
+		{
+			File[] fs = f.listFiles();
+			for(int i=0; i < fs.length; i++){
+				System.out.println(fs[i].getAbsolutePath());
+				readAllFiles(fs[i]);
+			}
+		}
+		else
+		{
+			readData(f);
+		}
+	}
+	private void readData(File file)
+	{
+		System.out.println("\t" + keywordInfo.size());
+		 
 		try {
-			FileReader fr = new FileReader(inputPath);
+			FileReader fr = new FileReader(file);
 			BufferedReader br = new BufferedReader(fr);
 			while (br.ready()) {
 				// read a line from data source
 				String line = br.readLine();
-				System.out.println("\t" + line);
+				//System.out.println("\t" + line);
 
 				// analysis the line
 				if (isEnglish(line)) {
@@ -91,16 +105,10 @@ public class WebVisionAnalysis {
 				} else {
 					analysisChinese(line);
 				}
-
-				// select keyword by some rules and update keywordInfo
-				// keywordInfoUpdate(words);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
-		// sort and output the Keywords group3 needed
-		Keywords2File();
 	}
 
 	private void Keywords2File() {
@@ -110,20 +118,18 @@ public class WebVisionAnalysis {
 			// select top10 or toArray and sort or whatever
 			Set<Entry<String, Integer>> entryset = keywordInfo.entrySet();
 			sortedKeywords = new ArrayList<String>(entryset.size());
-			int i = 0;
 			for (Entry e : entryset) {
-				sortedKeywords.add((String) e.getKey());
-
-				
+				sortedKeywords.add((String) e.getKey());			
 			}
+			
 			Collections.sort(sortedKeywords, new KeywordComparator());
 			for(String s:sortedKeywords)
 			{
-				System.out.println(s + " " + keywordInfo.get(s));
-				fos.println(s + " " + keywordInfo.get(s));
+				//System.out.println(s + " " + keywordInfo.get(s));
+				fos.println(s + " " + keywordInfo.get(s));				// data format requested
 			}
 
-			// data format requested
+			
 			fos.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -141,7 +147,9 @@ public class WebVisionAnalysis {
 	}
 
 	private void analysisChinese(String line) {
-		System.out.println("analysisChinese");
+		//System.out.println("analysisChinese");
+		//		 select keyword by some rules and update keywordInfo
+		
 		try {
 			ICTCLAS50 testICTCLAS50 = new ICTCLAS50();
 			// 分词所需库的路径
@@ -150,20 +158,19 @@ public class WebVisionAnalysis {
 			String code = "GB2312";
 			// String code = "UTF8";
 			if (testICTCLAS50.ICTCLAS_Init(argu.getBytes(code)) == false) {
-				System.out.println("Init Fail!");
+				System.out.println("ICTCLAS Init Fail!");
 				return;
 			} else {
-				System.out.println("Init Succeed!");
+				//System.out.println("ICTCLAS Init Succeed!");
 			}
-			// String sInput = "点击下载超女纪敏佳深受观众喜爱，太cool了。禽流感爆发在非典之后。";
 			byte nativeBytes[] = testICTCLAS50.ICTCLAS_ParagraphProcess(line
 					.getBytes(code), 0, 1);
-			System.out.println(nativeBytes.length);
+			//System.out.println(nativeBytes.length);
 			String nativeStr = new String(nativeBytes, 0, nativeBytes.length,
 					code);
 			String[] words = nativeStr.split(" ");
 			for (String s : words) {
-				System.out.println("\t" + s);
+				//System.out.println("\t" + s);
 				String[] parts = s.split("/");
 				// System.out.println("word:" + parts[0]);
 				// System.out.println("pos:" + parts[1]);
