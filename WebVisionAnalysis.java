@@ -3,6 +3,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -19,6 +22,8 @@ public class WebVisionAnalysis {
 
 	HashMap<String, Integer> keywordInfo = null;
 
+	ArrayList<String> sortedKeywords = null;
+
 	HashSet<String> ChineseStopWords = null;
 
 	HashSet<String> EnglishStopWords = null;
@@ -26,7 +31,9 @@ public class WebVisionAnalysis {
 	public WebVisionAnalysis(String inputPath, String outputPath) {
 		this.inputPath = inputPath;
 		this.outputPath = outputPath;
+
 		this.keywordInfo = new HashMap<String, Integer>();
+
 		this.EnglishStopWords = new HashSet<String>();
 		this.ChineseStopWords = new HashSet<String>();
 		initStopWords();
@@ -64,7 +71,7 @@ public class WebVisionAnalysis {
 
 		WebVisionAnalysis wva = new WebVisionAnalysis(inputPath, outputPath);
 		wva.handle();
-		
+
 	}
 
 	private void handle() {
@@ -76,7 +83,6 @@ public class WebVisionAnalysis {
 			while (br.ready()) {
 				// read a line from data source
 				String line = br.readLine();
-				
 				System.out.println("\t" + line);
 
 				// analysis the line
@@ -103,18 +109,33 @@ public class WebVisionAnalysis {
 			PrintWriter fos = new PrintWriter(new FileWriter(outputPath));
 			// select top10 or toArray and sort or whatever
 			Set<Entry<String, Integer>> entryset = keywordInfo.entrySet();
-			
+			sortedKeywords = new ArrayList<String>(entryset.size());
+			int i = 0;
 			for (Entry e : entryset) {
-				System.out.println(e.getKey() + " " + e.getValue());
-				fos.println(e.getKey() + " " + e.getValue());
-			}
-			
+				sortedKeywords.add((String) e.getKey());
 
-			
+				
+			}
+			Collections.sort(sortedKeywords, new KeywordComparator());
+			for(String s:sortedKeywords)
+			{
+				System.out.println(s + " " + keywordInfo.get(s));
+				fos.println(s + " " + keywordInfo.get(s));
+			}
+
 			// data format requested
 			fos.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+
+	}
+
+	class KeywordComparator implements Comparator {
+		public int compare(Object o1, Object o2) {
+			String s1 = (String) o1;
+			String s2 = (String) o2;
+			return keywordInfo.get(s2) - keywordInfo.get(s1);
 		}
 
 	}
@@ -126,30 +147,32 @@ public class WebVisionAnalysis {
 			// 分词所需库的路径
 			String argu = ".";
 			// 初始化
-			if (testICTCLAS50.ICTCLAS_Init(argu.getBytes("GB2312")) == false) {
+			String code = "GB2312";
+			// String code = "UTF8";
+			if (testICTCLAS50.ICTCLAS_Init(argu.getBytes(code)) == false) {
 				System.out.println("Init Fail!");
 				return;
 			} else {
 				System.out.println("Init Succeed!");
 			}
-			//String sInput = "点击下载超女纪敏佳深受观众喜爱，太cool了。禽流感爆发在非典之后。";
+			// String sInput = "点击下载超女纪敏佳深受观众喜爱，太cool了。禽流感爆发在非典之后。";
 			byte nativeBytes[] = testICTCLAS50.ICTCLAS_ParagraphProcess(line
-					.getBytes("GB2312"), 0, 1);
+					.getBytes(code), 0, 1);
 			System.out.println(nativeBytes.length);
 			String nativeStr = new String(nativeBytes, 0, nativeBytes.length,
-					"GB2312");
+					code);
 			String[] words = nativeStr.split(" ");
 			for (String s : words) {
-				 System.out.println("\t" + s);
+				System.out.println("\t" + s);
 				String[] parts = s.split("/");
 				// System.out.println("word:" + parts[0]);
 				// System.out.println("pos:" + parts[1]);
 				if (!ChineseStopWords.contains(parts[0])) {
-					if (parts[1].contains("n") || parts[1].contains("a") || parts[1].contains("x"))
+					if (parts[1].contains("n") || parts[1].contains("a"))
 						addWord(parts[0]);
 				}
 			}
-			System.out.println("The result is ：" + nativeStr);
+			// System.out.println("The result is ：" + nativeStr);
 			testICTCLAS50.ICTCLAS_Exit();
 		} catch (Exception ex) {
 		}
@@ -159,10 +182,10 @@ public class WebVisionAnalysis {
 	}
 
 	private void addWord(String keyword) {
-		System.out.println("addWord " + keyword);
+		//System.out.println("addWord " + keyword);
 
 		if (keywordInfo.containsKey(keyword)) {
-			int i = keywordInfo.get(keywordInfo);
+			int i = keywordInfo.get(keyword);
 			keywordInfo.put(keyword, i + 1);
 		} else {
 			keywordInfo.put(keyword, 1);
@@ -175,8 +198,7 @@ public class WebVisionAnalysis {
 		String[] words = line.split(" ,.?!");
 		for (String w : words) {
 			if (!EnglishStopWords.contains(w)) {
-				if(w.endsWith("s"))
-				{
+				if (w.endsWith("s")) {
 					w = w.substring(0, w.length() - 2);
 				}
 				addWord(w);
