@@ -17,6 +17,8 @@ public class WebVisionAnalysis {
 	HashSet<String> ChineseStopWords = null;
 
 	HashSet<String> EnglishStopWords = null;
+	
+	int fileCount = -1;
 
 	public WebVisionAnalysis(String inputPath, String outputPath) {
 		this.inputPath = inputPath;
@@ -27,6 +29,8 @@ public class WebVisionAnalysis {
 		this.EnglishStopWords = new HashSet<String>();
 		this.ChineseStopWords = new HashSet<String>();
 		initStopWords();
+		
+		this.fileCount = 0;
 	}
 
 	private void initStopWords() {
@@ -56,8 +60,8 @@ public class WebVisionAnalysis {
 	}
 
 	public static void main(String[] args) {
-		String inputPath = "D:/data"; 			// request for sample data
-		String outputPath = "D:/testoutput"; 		// request for sample data
+		String inputPath = "D:/data2";
+		String outputPath = "D:/output";
 
 		WebVisionAnalysis wva = new WebVisionAnalysis(inputPath, outputPath);
 		wva.handle();
@@ -70,26 +74,33 @@ public class WebVisionAnalysis {
 		File f = new File(inputPath);
 		readAllFiles(f);
 		// sort and output the Keywords group3 needed
-		Keywords2File();
+		//Keywords2File();
 	}
 	private void readAllFiles(File f)
 	{	
 		if(f.isDirectory())
 		{
 			File[] fs = f.listFiles();
+			
 			for(int i=0; i < fs.length; i++){
-				System.out.println(fs[i].getAbsolutePath());
+				System.out.println( i + " " + fs.length + fs[i].getAbsolutePath());
 				readAllFiles(fs[i]);
 			}
 		}
 		else
 		{
-			readData(f);
+			String rel = f.getAbsolutePath().substring(inputPath.length(), f.getAbsolutePath().length());
+			handleFile(f, rel);
+			
+			System.out.println("removing"  + f.getAbsolutePath());
+			f.delete();
+			fileCount++;
 		}
 	}
-	private void readData(File file)
+
+	private void handleFile(File file, String relativePath)
 	{
-		System.out.println("\t" + keywordInfo.size());
+		System.out.println("\nhandling\t" + relativePath + keywordInfo.size());
 		 
 		try {
 			FileReader fr = new FileReader(file);
@@ -106,45 +117,15 @@ public class WebVisionAnalysis {
 					analysisChinese(line);
 				}
 			}
+			br.close();
+			fr.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		Keywords2File(relativePath);
+		//System.out.println("readData finished");
 	}
 
-	private void Keywords2File() {
-		System.out.println(" Keywords2File ");
-		try {
-			PrintWriter fos = new PrintWriter(new FileWriter(outputPath));
-			// select top10 or toArray and sort or whatever
-			Set<Entry<String, Integer>> entryset = keywordInfo.entrySet();
-			sortedKeywords = new ArrayList<String>(entryset.size());
-			for (Entry e : entryset) {
-				sortedKeywords.add((String) e.getKey());			
-			}
-			
-			Collections.sort(sortedKeywords, new KeywordComparator());
-			for(String s:sortedKeywords)
-			{
-				//System.out.println(s + " " + keywordInfo.get(s));
-				fos.println(s + " " + keywordInfo.get(s));				// data format requested
-			}
-
-			
-			fos.flush();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-	}
-
-	class KeywordComparator implements Comparator {
-		public int compare(Object o1, Object o2) {
-			String s1 = (String) o1;
-			String s2 = (String) o2;
-			return keywordInfo.get(s2) - keywordInfo.get(s1);
-		}
-
-	}
 
 	private void analysisChinese(String line) {
 		//System.out.println("analysisChinese");
@@ -170,19 +151,25 @@ public class WebVisionAnalysis {
 					code);
 			String[] words = nativeStr.split(" ");
 			for (String s : words) {
-				//System.out.println("\t" + s);
+				//System.out.println("\tword: " + s);
 				String[] parts = s.split("/");
-				// System.out.println("word:" + parts[0]);
-				// System.out.println("pos:" + parts[1]);
-				if (!ChineseStopWords.contains(parts[0])) {
-					if (parts[1].contains("n") || parts[1].contains("a"))
-						addWord(parts[0]);
+				if (parts.length > 1)
+					if (!ChineseStopWords.contains(parts[0])) {
+						if(parts[1].contains("n") || parts[1].contains("a"))
+						{
+							//System.out.println("word:" + parts[0]);
+							//System.out.println("pos:" + parts[1]);
+							addWord(parts[0]);
+				
+						}
 				}
 			}
-			// System.out.println("The result is £º" + nativeStr);
+			//System.out.println("The result is £º" + nativeStr);
 			testICTCLAS50.ICTCLAS_Exit();
 		} catch (Exception ex) {
+			ex.printStackTrace();
 		}
+		//System.out.println("analysisChinese finished");
 
 		// ictclas suggestted
 
@@ -196,6 +183,7 @@ public class WebVisionAnalysis {
 			keywordInfo.put(keyword, i + 1);
 		} else {
 			keywordInfo.put(keyword, 1);
+			//System.out.println("newWord " + keyword);
 		}
 
 	}
@@ -214,6 +202,40 @@ public class WebVisionAnalysis {
 
 	}
 
+	private void Keywords2File(String relativePath) {
+		//System.out.println(" Keywords2File " + relativePath);
+		try {
+			PrintWriter fos = new PrintWriter(new FileWriter(outputPath + relativePath));
+			Set<Entry<String, Integer>> entryset = keywordInfo.entrySet();
+			sortedKeywords = new ArrayList<String>(entryset.size());
+			for (Entry e : entryset) {
+				sortedKeywords.add((String) e.getKey());			
+			}
+			
+			Collections.sort(sortedKeywords, new KeywordComparator());
+			for(String s:sortedKeywords)
+			{
+				//System.out.println(s + " " + keywordInfo.get(s));
+				if(s.length() > 2)
+					fos.println(s + " " + keywordInfo.get(s));				// data format requested
+			}
+
+			
+			fos.flush();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	class KeywordComparator implements Comparator {
+		public int compare(Object o1, Object o2) {
+			String s1 = (String) o1;
+			String s2 = (String) o2;
+			return keywordInfo.get(s2) - keywordInfo.get(s1);
+		}
+
+	}
 	public static boolean isEnglish(String line) {
 		// check if this line is pure English
 		int n;
