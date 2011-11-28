@@ -60,8 +60,8 @@ public class WebVisionAnalysis {
 	}
 
 	public static void main(String[] args) {
-		String inputPath = "D:/data2";
-		String outputPath = "D:/output";
+		String inputPath = "D:/data2/UKviews";
+		String outputPath = "D:/output/UKviews";
 
 		WebVisionAnalysis wva = new WebVisionAnalysis(inputPath, outputPath);
 		wva.handle();
@@ -92,8 +92,8 @@ public class WebVisionAnalysis {
 			String rel = f.getAbsolutePath().substring(inputPath.length(), f.getAbsolutePath().length());
 			handleFile(f, rel);
 			
-			System.out.println("removing"  + f.getAbsolutePath());
-			f.delete();
+			//System.out.println("removing"  + f.getAbsolutePath());
+			//f.delete();
 			fileCount++;
 		}
 	}
@@ -190,12 +190,16 @@ public class WebVisionAnalysis {
 
 	private void analysisEnglish(String line) {
 		// wordnet suggestted
-		String[] words = line.split(" ,.?!");
+		System.out.println("analysisEnglish");
+		String[] words = line.split(" |,|\\.|\\?|!|-|\\=");
 		for (String w : words) {
 			if (!EnglishStopWords.contains(w)) {
+				/*
 				if (w.endsWith("s")) {
 					w = w.substring(0, w.length() - 2);
 				}
+				*/
+				System.out.println("\t" + w);
 				addWord(w);
 			}
 		}
@@ -203,8 +207,12 @@ public class WebVisionAnalysis {
 	}
 
 	private void Keywords2File(String relativePath) {
-		//System.out.println(" Keywords2File " + relativePath);
+		System.out.println(" Keywords2File " + outputPath + relativePath);
 		try {
+			File f = new File(outputPath + relativePath);
+			f.mkdirs();
+			if(f.isDirectory())
+				f.delete();
 			PrintWriter fos = new PrintWriter(new FileWriter(outputPath + relativePath));
 			Set<Entry<String, Integer>> entryset = keywordInfo.entrySet();
 			sortedKeywords = new ArrayList<String>(entryset.size());
@@ -243,8 +251,8 @@ public class WebVisionAnalysis {
 		// System.out.print(n);
 		for (int i = 0; i < n; i++) {
 			// System.out.print(line.charAt(i));
-			// int a=line.charAt(i);
-			// System.out.print(a);
+			int a=line.charAt(i);
+			//System.out.print(a);
 			if (line.charAt(i) >= 128 || line.charAt(i) <= 0)
 				return false;
 			else if (i == n) {
