@@ -7,34 +7,71 @@ import ICTCLAS.I3S.AC.ICTCLAS50;
 public class WebVisionAnalysis {
 
 	String inputPath = null;
-
 	String outputPath = null;
+	String posnegPath = null;
+	
 
+	ICTCLAS50 testICTCLAS50;
+	String code = "GB2312";
+	
 	HashMap<String, Integer> keywordInfo = null;
 
 	ArrayList<String> sortedKeywords = null;
 
 	HashSet<String> ChineseStopWords = null;
-
 	HashSet<String> EnglishStopWords = null;
+	
+	HashSet<String> ChinesePositiveWords = null;
+	HashSet<String> ChineseNegativeWords = null;
+	int posCount = -1;
+	int negCount = -1;
+	int totalPosPara = 0;
+	int totalNegPara = 0;
+	int totalNeutralPara = 0;
 	
 	int fileCount = -1;
 
-	public WebVisionAnalysis(String inputPath, String outputPath) {
+	public WebVisionAnalysis(String inputPath, String outputPath, String posnegPath) {
 		this.inputPath = inputPath;
 		this.outputPath = outputPath;
+		this.posnegPath = posnegPath;
 
 		this.keywordInfo = new HashMap<String, Integer>();
 
 		this.EnglishStopWords = new HashSet<String>();
 		this.ChineseStopWords = new HashSet<String>();
-		initStopWords();
 		
+		this.ChinesePositiveWords = new HashSet<String>();
+		this.ChineseNegativeWords = new HashSet<String>();
+		
+		initStopWords();
+		initSentiDict();
 		this.fileCount = 0;
+		
+		testICTCLAS50 = new ICTCLAS50();
+		// 分词所需库的路径
+		String argu = ".";
+		// 初始化
+		code = "GB2312";
+		// String code = "UTF8";
+		try {
+			if (testICTCLAS50.ICTCLAS_Init(argu.getBytes(code)) == false) {
+				System.out.println("ICTCLAS Init Fail!");
+				return;
+			} else {
+				//System.out.println("ICTCLAS Init Succeed!");
+			}
+		} catch (UnsupportedEncodingException e) {
+			// TODO 自动生成 catch 块
+			e.printStackTrace();
+		}
+		
+		//System.out.println(nativeBytes.length);
+		
 	}
 
 	private void initStopWords() {
-		String EnglishStopWordsPath = "D:/workspace2/WebVisionAnalysis/blacklist_en.txt";
+		String EnglishStopWordsPath = Constant.EnglishStopWordsPath;
 		try {
 			FileReader fr = new FileReader(EnglishStopWordsPath);
 			BufferedReader br = new BufferedReader(fr);
@@ -45,7 +82,7 @@ public class WebVisionAnalysis {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		String ChineseStopWordsPath = "D:/workspace2/WebVisionAnalysis/blacklist_cn.txt";
+		String ChineseStopWordsPath = Constant.ChineseStopWordsPath;
 		try {
 			FileReader fr = new FileReader(ChineseStopWordsPath);
 			BufferedReader br = new BufferedReader(fr);
@@ -58,13 +95,43 @@ public class WebVisionAnalysis {
 		}
 
 	}
+	private void initSentiDict() {
+		String ChinesePositiveWordsPath = Constant.ChinesePositiveWords;
+		try {
+			FileReader fr = new FileReader(ChinesePositiveWordsPath);
+			BufferedReader br = new BufferedReader(fr);
+			while (br.ready()) {
+				String line = br.readLine();
+				ChinesePositiveWords.add(line);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		String ChineseNegativeWordsPath = Constant.ChineseNegativeWords;
+		try {
+			FileReader fr = new FileReader(ChineseNegativeWordsPath);
+			BufferedReader br = new BufferedReader(fr);
+			while (br.ready()) {
+				String line = br.readLine();
+				ChineseNegativeWords.add(line);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
 
 	public static void main(String[] args) {
-		String inputPath = "D:/data2/UKviews";
-		String outputPath = "D:/output/UKviews";
-
-		WebVisionAnalysis wva = new WebVisionAnalysis(inputPath, outputPath);
-		wva.handle();
+		//String inputPath = "D:/data2/";
+		String inputPath = Constant.InputPath;
+		//String outputPath = "D:/output/";
+		String outputPath = Constant.OutputPath;
+		String posnegPath = Constant.PosNegPath;
+		//while(true)
+		{
+			WebVisionAnalysis wva = new WebVisionAnalysis(inputPath, outputPath, posnegPath);
+			wva.handle();
+		}
 
 	}
 
@@ -73,8 +140,8 @@ public class WebVisionAnalysis {
 		// Process
 		File f = new File(inputPath);
 		readAllFiles(f);
-		// sort and output the Keywords group3 needed
-		//Keywords2File();
+		testICTCLAS50.ICTCLAS_Exit();
+		
 	}
 	private void readAllFiles(File f)
 	{	
@@ -83,25 +150,31 @@ public class WebVisionAnalysis {
 			File[] fs = f.listFiles();
 			
 			for(int i=0; i < fs.length; i++){
-				System.out.println( i + " " + fs.length + fs[i].getAbsolutePath());
+				//System.out.println( i + " " + fs.length + fs[i].getAbsolutePath());
 				readAllFiles(fs[i]);
+			}
+			String rela = f.getPath().substring(Constant.InputPath.length(), f.getPath().length());
+			if(rela.length() > 1)
+			{
+				folderStatic(rela.substring(1).replace('\\', '/') + '/');
+				Keywords2File(rela.substring(1).replace('\\', '/') + '/');
 			}
 		}
 		else
 		{
 			String rel = f.getAbsolutePath().substring(inputPath.length(), f.getAbsolutePath().length());
 			handleFile(f, rel);
-			
-			//System.out.println("removing"  + f.getAbsolutePath());
-			//f.delete();
 			fileCount++;
 		}
 	}
 
+	
+
 	private void handleFile(File file, String relativePath)
 	{
-		System.out.println("\nhandling\t" + relativePath + keywordInfo.size());
-		 
+		//System.out.println("\nhandling File\t" + relativePath + " " + keywordInfo.size());
+		posCount = 0;
+		negCount = 0;
 		try {
 			FileReader fr = new FileReader(file);
 			BufferedReader br = new BufferedReader(fr);
@@ -122,31 +195,40 @@ public class WebVisionAnalysis {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		Keywords2File(relativePath);
+		//get total sentimental
+		if(negCount < 5 )
+		{
+			if(posCount < 5)
+				totalNegPara ++;
+			else 
+				totalPosPara ++;
+		} 
+		else
+		{
+			if(posCount / negCount > 1.7)
+				totalPosPara ++;
+			else if(posCount / negCount < 0.75)
+				totalNegPara ++;
+			else 
+				totalNeutralPara ++;
+		}
+//		 sort and output the Keywords group3 needed
+		//Keywords2File(relativePath);
+		//PosNeg2File(relativePath);
+		
 		//System.out.println("readData finished");
 	}
 
+
+	
 
 	private void analysisChinese(String line) {
 		//System.out.println("analysisChinese");
 		//		 select keyword by some rules and update keywordInfo
 		
 		try {
-			ICTCLAS50 testICTCLAS50 = new ICTCLAS50();
-			// 分词所需库的路径
-			String argu = ".";
-			// 初始化
-			String code = "GB2312";
-			// String code = "UTF8";
-			if (testICTCLAS50.ICTCLAS_Init(argu.getBytes(code)) == false) {
-				System.out.println("ICTCLAS Init Fail!");
-				return;
-			} else {
-				//System.out.println("ICTCLAS Init Succeed!");
-			}
 			byte nativeBytes[] = testICTCLAS50.ICTCLAS_ParagraphProcess(line
 					.getBytes(code), 0, 1);
-			//System.out.println(nativeBytes.length);
 			String nativeStr = new String(nativeBytes, 0, nativeBytes.length,
 					code);
 			String[] words = nativeStr.split(" ");
@@ -155,17 +237,30 @@ public class WebVisionAnalysis {
 				String[] parts = s.split("/");
 				if (parts.length > 1)
 					if (!ChineseStopWords.contains(parts[0])) {
+						if(ChinesePositiveWords.contains(parts[0]))
+						{
+							//System.out.println("Positive:" + parts[0]);
+							posCount ++;
+						}
+						if(ChineseNegativeWords.contains(parts[0]))
+						{
+							//System.out.println("Negative:" + parts[0]);
+							negCount++;
+						}
+						
 						if(parts[1].contains("n") || parts[1].contains("a"))
+							//if(parts[1].contains("a"))
 						{
 							//System.out.println("word:" + parts[0]);
 							//System.out.println("pos:" + parts[1]);
 							addWord(parts[0]);
+							
 				
 						}
 				}
 			}
 			//System.out.println("The result is ：" + nativeStr);
-			testICTCLAS50.ICTCLAS_Exit();
+			
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -190,30 +285,56 @@ public class WebVisionAnalysis {
 
 	private void analysisEnglish(String line) {
 		// wordnet suggestted
-		System.out.println("analysisEnglish");
+		//System.out.println("analysisEnglish");
 		String[] words = line.split(" |,|\\.|\\?|!|-|\\=");
 		for (String w : words) {
-			if (!EnglishStopWords.contains(w)) {
+			if (!EnglishStopWords.contains(w.toLowerCase())) {
 				/*
 				if (w.endsWith("s")) {
 					w = w.substring(0, w.length() - 2);
 				}
 				*/
-				System.out.println("\t" + w);
+				//System.out.println("\t" + w);
 				addWord(w);
 			}
 		}
 
 	}
-
-	private void Keywords2File(String relativePath) {
-		System.out.println(" Keywords2File " + outputPath + relativePath);
+	private void folderStatic(String relativePath) {
+		System.out.println(" folderStatic " + outputPath + "/" + relativePath + "pos-neg-neu.txt");
 		try {
-			File f = new File(outputPath + relativePath);
+			File f = new File(outputPath + "/" + relativePath  + "pos-neg-neu.txt");
 			f.mkdirs();
 			if(f.isDirectory())
+			{
 				f.delete();
-			PrintWriter fos = new PrintWriter(new FileWriter(outputPath + relativePath));
+			}
+			PrintWriter fos = new PrintWriter(new FileWriter(outputPath + "/" + relativePath + "pos-neg-neu.txt"));
+			//fos.println("totalPosPara of " + relativePath + " " + totalPosPara);
+			//fos.println("totalNegPara of " + relativePath + " " + totalNegPara);
+			//fos.println("totalNeutralPara of " + relativePath + " " + totalNeutralPara);
+			fos.println(totalPosPara);
+			fos.println(totalNegPara);
+			fos.println(totalNeutralPara);
+			totalPosPara = 0;
+			totalNegPara = 0;
+			totalNeutralPara = 0;
+			fos.flush();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+	}
+	private void Keywords2File(String relativePath) {
+		System.out.println(" Keywords2File " + outputPath + "/" + relativePath + "topWords.txt");
+		try {
+			File f = new File(outputPath + "/" + relativePath + "topWords.txt");
+			f.mkdirs();
+			if(f.isDirectory())
+			{
+				f.delete();
+			}
+			PrintWriter fos = new PrintWriter(new FileWriter(outputPath + "/" + relativePath + "topWords.txt"));
 			Set<Entry<String, Integer>> entryset = keywordInfo.entrySet();
 			sortedKeywords = new ArrayList<String>(entryset.size());
 			for (Entry e : entryset) {
@@ -224,17 +345,37 @@ public class WebVisionAnalysis {
 			for(String s:sortedKeywords)
 			{
 				//System.out.println(s + " " + keywordInfo.get(s));
-				if(s.length() > 2)
+				if(s.length() > 2 && !isEnglish(s))
 					fos.println(s + " " + keywordInfo.get(s));				// data format requested
 			}
 
-			
+			keywordInfo.clear();
 			fos.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 
 	}
+	
+	private void PosNeg2File(String relativePath) {
+		System.out.println(" PosNeg2File " + posnegPath + relativePath);
+		try {
+			File f = new File(posnegPath + relativePath);
+			f.mkdirs();
+			if(f.isDirectory())
+				f.delete();
+			PrintWriter fos = new PrintWriter(new FileWriter(posnegPath + relativePath));
+			fos.println("Positive\n" + posCount);
+			fos.println("Negtive\n" + negCount);
+
+			
+			fos.flush();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
 
 	class KeywordComparator implements Comparator {
 		public int compare(Object o1, Object o2) {
